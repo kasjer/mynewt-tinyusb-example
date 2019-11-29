@@ -9,9 +9,15 @@ pkg.keywords:
 pkg.deps:
     - "@apache-mynewt-core/kernel/os"
     - "@apache-mynewt-core/hw/hal"
-    - "@apache-mynewt-core/sys/console/stub"
-    - "@apache-mynewt-core/sys/log/stub"
     - "@tinyusb/tinyusb"
 
 pkg.cflags: 
     - "-I@tinyusb/src"
+
+pkg.deps.!CONSOLE:
+    - "@apache-mynewt-core/sys/console/stub"
+    - "@apache-mynewt-core/sys/log/stub"
+
+pkg.deps.CONSOLE:
+    - "@apache-mynewt-core/sys/console/full"
+    - "@apache-mynewt-core/sys/log/full"

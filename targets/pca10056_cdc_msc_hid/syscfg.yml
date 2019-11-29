@@ -1,0 +1,8 @@
+syscfg.vals:
+#    OS_MEMPOOL_POISON: 1
+#    OS_MEMPOOL_GUARD: 1
+    CONSOLE_UART: 1
+    UART_0: 1
+    CONSOLE_UART_BAUD: 1000000
+    UART_0_PIN_TX: 31
+#    CONSOLE_UART_DEV: '"uart0"'

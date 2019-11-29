@@ -57,6 +57,12 @@ static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 static struct os_task usbd_tsk;
 static os_stack_t usbd_stack[OS_STACK_ALIGN(USBD_STACK_SIZE)];
 
+#if CFG_TUD_CDC
+#define CDC_STACK_SIZE    100
+static struct os_task cdc_tsk;
+static os_stack_t cdc_stack[OS_STACK_ALIGN(CDC_STACK_SIZE)];
+#endif
+
 void usb_hardware_init(void);
 void usb_device_task(void* param);
 
@@ -66,6 +72,11 @@ int main (int argc, char **argv)
   int rc;
 
   sysinit();
+  hal_gpio_init_out(ARDUINO_PIN_D0, 0);
+  hal_gpio_init_out(ARDUINO_PIN_D1, 0);
+  hal_gpio_init_out(ARDUINO_PIN_D2, 0);
+  hal_gpio_init_out(ARDUINO_PIN_D3, 0);
+  hal_gpio_init_out(ARDUINO_PIN_D4, 0);
   usb_hardware_init();
 
   tusb_init();
@@ -145,6 +156,65 @@ void tud_resume_cb(void)
 }
 
 //--------------------------------------------------------------------+
+// USB CDC
+//--------------------------------------------------------------------+
+#if CFG_TUD_CDC
+void cdc_task(void* params)
+{
+    (void) params;
+
+    printf("cdc_task stated\n");
+    // RTOS forever loop
+    while ( 1 )
+    {
+        if ( tud_cdc_connected() )
+        {
+            // connected and there are data available
+            if ( tud_cdc_available() )
+            {
+                uint8_t buf[64];
+
+                // read and echo back
+                uint32_t count = tud_cdc_read(buf, sizeof(buf));
+
+                for(uint32_t i=0; i<count; i++)
+                {
+                    tud_cdc_write_char(buf[i]);
+
+                    if ( buf[i] == '\r' ) tud_cdc_write_char('\n');
+                }
+
+                tud_cdc_write_flush();
+            }
+        }
+
+        // delay to yield
+        os_time_delay(1);
+    }
+}
+
+// Invoked when cdc when line state changed e.g connected/disconnected
+void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts)
+{
+    (void) itf;
+
+    // connected
+    if ( dtr && rts )
+    {
+        // print initial message when connected
+        tud_cdc_write_str("\r\nTinyUSB CDC MSC HID device with MyNewt example\r\n");
+    }
+}
+
+// Invoked when CDC interface received data from host
+void tud_cdc_rx_cb(uint8_t itf)
+{
+    (void) itf;
+}
+
+#endif
+
+//--------------------------------------------------------------------+
 // NRF52840 power management
 //--------------------------------------------------------------------+
 #ifdef NRF52840_XXAA
@@ -173,7 +243,7 @@ void usb_hardware_init(void)
   // Setup Power IRQ to detect USB VBUS state ( detected, ready, removed)
   NVIC_SetVector(POWER_CLOCK_IRQn, (uint32_t) POWER_CLOCK_IRQHandler);
   NVIC_SetPriority(POWER_CLOCK_IRQn, 7);
-  nrf_power_int_enable(
+  nrf_power_int_enable(NRF_POWER,
         NRF_POWER_INT_USBDETECTED_MASK |
         NRF_POWER_INT_USBREMOVED_MASK  |
         NRF_POWER_INT_USBPWRRDY_MASK);
@@ -198,22 +268,22 @@ void usb_hardware_init(void)
 // Power ISR to detect USB VBUS state
 void POWER_CLOCK_IRQHandler(void)
 {
-  uint32_t enabled = nrf_power_int_enable_get();
+  uint32_t enabled = nrf_power_int_enable_get(NRF_POWER);
 
   if ((0 != (enabled & NRF_POWER_INT_USBDETECTED_MASK)) &&
-      nrf_power_event_get_and_clear(NRF_POWER_EVENT_USBDETECTED))
+      nrf_power_event_get_and_clear(NRF_POWER, NRF_POWER_EVENT_USBDETECTED))
   {
     tusb_hal_nrf_power_event(USB_EVT_DETECTED);
   }
 
   if ((0 != (enabled & NRF_POWER_INT_USBREMOVED_MASK)) &&
-      nrf_power_event_get_and_clear(NRF_POWER_EVENT_USBREMOVED))
+      nrf_power_event_get_and_clear(NRF_POWER, NRF_POWER_EVENT_USBREMOVED))
   {
     tusb_hal_nrf_power_event(USB_EVT_REMOVED);
   }
 
   if ((0 != (enabled & NRF_POWER_INT_USBPWRRDY_MASK)) &&
-      nrf_power_event_get_and_clear(NRF_POWER_EVENT_USBPWRRDY))
+      nrf_power_event_get_and_clear(NRF_POWER, NRF_POWER_EVENT_USBPWRRDY))
   {
     tusb_hal_nrf_power_event(USB_EVT_READY);
   }

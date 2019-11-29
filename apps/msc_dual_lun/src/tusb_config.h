@@ -46,7 +46,7 @@
 #endif
 
 #define CFG_TUSB_OS                 OPT_OS_MYNEWT
-#define CFG_TUSB_DEBUG              2
+#define CFG_TUSB_DEBUG              0
 
 /* USB DMA on some MCUs can only access a specific SRAM region with restriction on alignment.
  * Tinyusb use follows macros to declare transferring memory so that they can be put
@@ -75,6 +75,12 @@
 #define CFG_TUD_HID             0
 #define CFG_TUD_MIDI            0
 #define CFG_TUD_VENDOR          0
+
+//------------- CDC -------------//
+
+// FIFO size of CDC TX and RX
+#define CFG_TUD_CDC_RX_BUFSIZE   64
+#define CFG_TUD_CDC_TX_BUFSIZE   64
 
 // MSC Buffer size of Device Mass storage
 #define CFG_TUD_MSC_BUFSIZE     512

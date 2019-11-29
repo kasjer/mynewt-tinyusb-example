@@ -25,6 +25,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <core_cm4.h>
 
 #include "sysinit/sysinit.h"
 #include "os/os.h"
@@ -75,6 +76,24 @@ int main (int argc, char **argv)
   int rc;
 
   sysinit();
+    hal_gpio_init_out(ARDUINO_PIN_D0, 0);
+    hal_gpio_init_out(ARDUINO_PIN_D1, 0);
+    hal_gpio_init_out(ARDUINO_PIN_D2, 0);
+    hal_gpio_init_out(ARDUINO_PIN_D3, 0);
+    hal_gpio_init_out(ARDUINO_PIN_D4, 0);
+    // 0x4000055c
+    NRF_CLOCK->TRACECONFIG = 0x10003;
+#if 1
+    CoreDebug->DEMCR = CoreDebug_DEMCR_TRCENA_Msk;
+    // ITM_TCR enable
+//    ITM->TCR = 0xF;         // 0xE0000E80
+    ITM->TCR = ITM_TCR_TraceBusID_Msk | ITM_TCR_SWOENA_Msk | ITM_TCR_SYNCENA_Msk | ITM_TCR_ITMENA_Msk; /* ITM Trace Control Register */
+    ITM->TPR = ITM_TPR_PRIVMASK_Msk; /* ITM Trace Privilege Register */
+    ITM->TER = 1;  // 0xE0000E00
+//    ITM->PORT[0].u32 = 'A'; // 0xE0000000
+int console_out_nolock(int);
+    console_out_nolock('A');
+#endif
   usb_hardware_init();
 
   tusb_init();
@@ -334,7 +353,7 @@ void usb_hardware_init(void)
   // Setup Power IRQ to detect USB VBUS state ( detected, ready, removed)
   NVIC_SetVector(POWER_CLOCK_IRQn, (uint32_t) POWER_CLOCK_IRQHandler);
   NVIC_SetPriority(POWER_CLOCK_IRQn, 7);
-  nrf_power_int_enable(
+  nrf_power_int_enable(NRF_POWER,
         NRF_POWER_INT_USBDETECTED_MASK |
         NRF_POWER_INT_USBREMOVED_MASK  |
         NRF_POWER_INT_USBPWRRDY_MASK);
@@ -359,22 +378,22 @@ void usb_hardware_init(void)
 // Power ISR to detect USB VBUS state
 void POWER_CLOCK_IRQHandler(void)
 {
-  uint32_t enabled = nrf_power_int_enable_get();
+  uint32_t enabled = nrf_power_int_enable_get(NRF_POWER);
 
   if ((0 != (enabled & NRF_POWER_INT_USBDETECTED_MASK)) &&
-      nrf_power_event_get_and_clear(NRF_POWER_EVENT_USBDETECTED))
+      nrf_power_event_get_and_clear(NRF_POWER,NRF_POWER_EVENT_USBDETECTED))
   {
     tusb_hal_nrf_power_event(USB_EVT_DETECTED);
   }
 
   if ((0 != (enabled & NRF_POWER_INT_USBREMOVED_MASK)) &&
-      nrf_power_event_get_and_clear(NRF_POWER_EVENT_USBREMOVED))
+      nrf_power_event_get_and_clear(NRF_POWER,NRF_POWER_EVENT_USBREMOVED))
   {
     tusb_hal_nrf_power_event(USB_EVT_REMOVED);
   }
 
   if ((0 != (enabled & NRF_POWER_INT_USBPWRRDY_MASK)) &&
-      nrf_power_event_get_and_clear(NRF_POWER_EVENT_USBPWRRDY))
+      nrf_power_event_get_and_clear(NRF_POWER, NRF_POWER_EVENT_USBPWRRDY))
   {
     tusb_hal_nrf_power_event(USB_EVT_READY);
   }
